@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gump Mean Time</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --color-background-primary: #ffffff;
+      --color-background-secondary: #f5f5f0;
+      --color-background-tertiary: #ebebE6;
+      --color-background-warning: #fef9ec;
+      --color-text-primary: #1a1a18;
+      --color-text-secondary: #5a5a55;
+      --color-text-tertiary: #9a9a94;
+      --color-text-warning: #92650a;
+      --color-border-tertiary: rgba(0,0,0,0.12);
+      --color-border-secondary: rgba(0,0,0,0.22);
+      --color-border-warning: rgba(180,120,0,0.3);
+      --border-radius-md: 8px;
+      --border-radius-lg: 12px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-background-primary: #1e1e1c;
+        --color-background-secondary: #2a2a27;
+        --color-background-tertiary: #333330;
+        --color-background-warning: #2a2010;
+        --color-text-primary: #e8e8e2;
+        --color-text-secondary: #a0a09a;
+        --color-text-tertiary: #686864;
+        --color-text-warning: #d4a030;
+        --color-border-tertiary: rgba(255,255,255,0.1);
+        --color-border-secondary: rgba(255,255,255,0.18);
+        --color-border-warning: rgba(200,140,0,0.3);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--color-background-tertiary);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Lato', sans-serif;
+    }
+    .gmt-app { padding: 2rem 1rem 1.5rem; max-width: 700px; width: 100%; margin: 0 auto; }
+    .gmt-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 28px; font-weight: 700; color: var(--color-text-primary);
+      letter-spacing: -0.5px; text-align: center; margin-bottom: 4px;
+    }
+    .gmt-subtitle {
+      font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--color-text-tertiary); text-align: center; margin-bottom: 2rem;
+    }
+    .clocks-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .clock-card {
+      background: var(--color-background-secondary);
+      border: 0.5px solid var(--color-border-tertiary);
+      border-radius: var(--border-radius-lg); padding: 1.25rem; text-align: center;
+    }
+    .clock-card.gump-card {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-secondary);
+    }
+    .clock-label {
+      font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--color-text-tertiary); margin-bottom: 12px;
+    }
+    .clock-face { position: relative; width: 130px; height: 130px; margin: 0 auto 14px; }
+    .clock-face canvas { position: absolute; top: 0; left: 0; width: 130px; height: 130px; }
+    .clock-center-text {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center; pointer-events: none; width: 110px;
+    }
+    .clock-digital {
+      font-family: 'DM Mono', monospace; font-size: 22px; font-weight: 500;
+      color: var(--color-text-primary); letter-spacing: -0.5px; display: block;
+    }
+    .clock-digital.gump-digital { font-size: 20px; letter-spacing: -1px; }
+    .clock-sub { font-size: 10px; color: var(--color-text-secondary); margin-top: 2px; display: block; }
+    .clock-name { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--color-text-primary); font-weight: 700; }
+    .clock-region { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+    .status-bar {
+      background: var(--color-background-secondary);
+      border: 0.5px solid var(--color-border-tertiary);
+      border-radius: var(--border-radius-md); padding: 14px 18px; margin-bottom: 16px;
+      display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-around;
+    }
+    .stat { text-align: center; flex: 1; min-width: 80px; }
+    .stat-val { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; color: var(--color-text-primary); display: block; }
+    .stat-lbl { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--color-text-tertiary); margin-top: 2px; display: block; }
+    .jenny-banner {
+      background: var(--color-background-warning); border: 0.5px solid var(--color-border-warning);
+      border-radius: var(--border-radius-md); padding: 10px 16px; margin-bottom: 16px;
+      display: none; align-items: center; gap: 10px;
+    }
+    .jenny-banner.active { display: flex; }
+    .jenny-pulse {
+      width: 8px; height: 8px; border-radius: 50%; background: #EF9F27; flex-shrink: 0;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    .jenny-text { font-size: 13px; color: var(--color-text-warning); }
+    .jenny-text strong { font-weight: 700; }
+    .progress-section {
+      background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary);
+      border-radius: var(--border-radius-md); padding: 14px 18px;
+    }
+    .progress-lbl { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--color-text-tertiary); margin-bottom: 10px; }
+    .week-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+    .day-col { text-align: center; }
+    .day-label {
+      font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--color-text-tertiary); margin-bottom: 4px; font-family: 'DM Mono', monospace;
+    }
+    .day-label.active-day { color: var(--color-text-primary); font-weight: 500; }
+    .day-bar-wrap {
+      height: 48px; background: var(--color-background-primary);
+      border: 0.5px solid var(--color-border-tertiary); border-radius: 4px;
+      position: relative; overflow: hidden;
+    }
+    .day-bar-fill { position: absolute; bottom: 0; left: 0; right: 0; background: #7A6040; transition: height 0.5s ease; }
+    .day-bar-fill.jenny-fill { background: #EF9F27; }
+    .day-bar-wrap.active-bar { border-color: #7A6040; }
+    .day-bar-wrap.active-bar.jenny-bar { border-color: #EF9F27; }
+    .day-gump-num { font-size: 9px; color: var(--color-text-tertiary); font-family: 'DM Mono', monospace; margin-top: 3px; }
+    .zone-strip { margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--color-border-tertiary); }
+    .zone-lbl { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--color-text-tertiary); margin-bottom: 6px; }
+    .zone-pill {
+      display: inline-block; background: var(--color-background-primary);
+      border: 0.5px solid var(--color-border-secondary); border-radius: 20px; padding: 3px 10px;
+      font-size: 12px; color: var(--color-text-secondary); font-family: 'DM Mono', monospace;
+    }
+    .runner-panel {
+      background: var(--color-background-secondary);
+      border: 0.5px solid var(--color-border-tertiary);
+      border-radius: var(--border-radius-lg);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .runner-label {
+      font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--color-text-tertiary); padding: 10px 16px 0;
+    }
+    #runner-canvas { display: block; width: 100%; height: 120px; }
+    @media (max-width: 480px) {
+      .clocks-row { grid-template-columns: 1fr; }
+      .day-label { font-size: 8px; }
+    }
+  </style>
+</head>
+<body>
+<div class="gmt-app">
+  <div class="gmt-title">Gump Mean Time</div>
+  <div class="gmt-subtitle">A superior timekeeping methodology · Est. 10.07.2025</div>
+
+  <div class="jenny-banner" id="jenny-banner">
+    <div class="jenny-pulse"></div>
+    <div class="jenny-text"><strong>Jenny is active</strong> — Bonus Gump realigning the week with the solar cycle. Sleep well.</div>
+  </div>
+
+  <div class="clocks-row">
+    <div class="clock-card">
+      <div class="clock-label">Local time</div>
+      <div class="clock-face">
+        <canvas id="local-canvas" width="260" height="260"></canvas>
+        <div class="clock-center-text">
+          <span class="clock-digital" id="local-digital">--:--:--</span>
+          <span class="clock-sub" id="local-day">---</span>
+        </div>
+      </div>
+      <div class="clock-name" id="local-zone-name">Detecting...</div>
+      <div class="clock-region" id="local-offset"></div>
+    </div>
+    <div class="clock-card gump-card">
+      <div class="clock-label">Gump Mean Time · GMT+0</div>
+      <div class="clock-face">
+        <canvas id="gump-canvas" width="260" height="260"></canvas>
+        <div class="clock-center-text">
+          <span class="clock-digital gump-digital" id="gump-digital">-.--</span>
+          <span class="clock-sub" id="gump-day">Dan --</span>
+        </div>
+      </div>
+      <div class="clock-name" id="gump-name">Gump --</div>
+      <div class="clock-region" id="gump-sub">Loading...</div>
+    </div>
+  </div>
+
+  <div class="runner-panel">
+    <div class="runner-label">Gump progress today</div>
+    <canvas id="runner-canvas"></canvas>
+  </div>
+
+  <div class="status-bar">
+    <div class="stat"><span class="stat-val" id="stat-gump">--</span><span class="stat-lbl">Gump of week</span></div>
+    <div class="stat"><span class="stat-val" id="stat-mins-left">---m</span><span class="stat-lbl">Mins remaining</span></div>
+    <div class="stat"><span class="stat-val" id="stat-dan">-- / 28</span><span class="stat-lbl">Dan of month</span></div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-lbl">Weekly Gump progress — Mon to Sun (GMT+0)</div>
+    <div class="week-days" id="week-days"></div>
+    <div class="zone-strip">
+      <div class="zone-lbl">Your GMT zone</div>
+      <span class="zone-pill" id="zone-pill">Calculating...</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GUMP_MINS = 142;
+  const GUMPS_PER_DAY_ARR = [10,10,10,10,10,10,11];
+  const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const QUARTER_SCENES = {
+    0:'Childhood & shrimp', 1:'"Run Forrest Run"',
+    2:'Military hospital',  3:'Running across the USA'
+  };
+
+  function getGMT0Now() {
+    const now = new Date();
+    return new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+  }
+
+  function getLocalZone() {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const offset = -new Date().getTimezoneOffset();
+      const h = Math.floor(Math.abs(offset)/60), m = Math.abs(offset)%60;
+      const sign = offset >= 0 ? '+' : '-';
+      return { tz, offsetStr:`UTC${sign}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`, offsetMins:offset };
+    } catch(e) { return { tz:'Unknown', offsetStr:'UTC+00:00', offsetMins:0 }; }
+  }
+
+  function getDayIndex(gmt0) {
+    const jsDay = gmt0.getDay();
+    return jsDay === 0 ? 6 : jsDay - 1;
+  }
+
+  function gumpsBeforeDay(dayIdx) {
+    let total = 0;
+    for (let i = 0; i < dayIdx; i++) total += GUMPS_PER_DAY_ARR[i];
+    return total;
+  }
+
+  function computeGump(gmt0) {
+    const dayIdx = getDayIndex(gmt0);
+    const isSunday = dayIdx === 6;
+    const sod = new Date(gmt0); sod.setHours(0,0,0,0);
+    const elapsedTodayMins = (gmt0 - sod) / 60000;
+    const gumpIdxToday = Math.floor(elapsedTodayMins / GUMP_MINS); // 0-based
+    const withinMins = elapsedTodayMins % GUMP_MINS;
+    const progress = withinMins / GUMP_MINS;
+    const weekGumpIdx = gumpsBeforeDay(dayIdx) + gumpIdxToday;
+    const isJenny = isSunday && gumpIdxToday >= 10;
+    const qIndex = Math.min(Math.floor(progress * 4), 3);
+    const decimalPct = Math.floor(progress * 100);
+    // Clock face: daily, 0-indexed — 8th Gump of day shows "7.xx"
+    const dailyDecimal = isJenny
+      ? 'Jenny'
+      : `${gumpIdxToday}.${String(decimalPct).padStart(2,'0')}`;
+    return {
+      weekGumpIdx, gumpIdxToday, progress, withinMins,
+      isJenny, isSunday, dayIdx,
+      weekDisplayGump: weekGumpIdx + 1,
+      minsLeft: Math.round(GUMP_MINS - withinMins),
+      scene: QUARTER_SCENES[qIndex],
+      dailyDecimal
+    };
+  }
+
+  function getGumpZoneLabel(offsetMins) {
+    const deg = offsetMins / 4;
+    if (deg>=-18&&deg<18)    return {offset:0,  region:'West Europe / West Africa'};
+    if (deg>=18&&deg<54)     return {offset:1,  region:'East Europe / East Africa'};
+    if (deg>=54&&deg<90)     return {offset:2,  region:'Persia / South Asia'};
+    if (deg>=90&&deg<126)    return {offset:3,  region:'Central / SE Asia'};
+    if (deg>=126)             return {offset:4,  region:'East Asia / Oceania'};
+    if (deg<-18&&deg>=-54)   return {offset:-1, region:'Atlantic Islands'};
+    if (deg<-54&&deg>=-90)   return {offset:-2, region:'The Americas'};
+    if (deg<-90&&deg>=-126)  return {offset:-3, region:'Mexico'};
+    if (deg<-126&&deg>=-162) return {offset:-4, region:'Pacific Islands'};
+    return {offset:-5, region:'Pacific Islands'};
+  }
+
+  function pad(n) { return String(Math.floor(n)).padStart(2,'0'); }
+  function isDark() { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+
+  function drawLocal(canvas, h, m, s) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, cx = W/2, cy = W/2, r = W/2 - 10;
+    const dark = isDark();
+    const bg = dark?'#1e1e1c':'#F5EFE0', fg = dark?'#E8E0D0':'#3A2E1C';
+    const hand = dark?'#D4C4A0':'#3A2E1C', acc = '#7A6040';
+    ctx.clearRect(0,0,W,W);
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle=bg; ctx.fill(); ctx.strokeStyle=acc; ctx.lineWidth=1.5; ctx.stroke();
+    for (let i=0;i<12;i++) {
+      const a=(i/12)*Math.PI*2-Math.PI/2, big=i%3===0;
+      ctx.beginPath();
+      ctx.moveTo(cx+(r-8)*Math.cos(a),cy+(r-8)*Math.sin(a));
+      ctx.lineTo(cx+(r-(big?18:13))*Math.cos(a),cy+(r-(big?18:13))*Math.sin(a));
+      ctx.strokeStyle=fg; ctx.lineWidth=big?1.5:0.8; ctx.stroke();
+    }
+    const ha=((h%12)/12+m/720)*Math.PI*2-Math.PI/2;
+    const ma=(m/60+s/3600)*Math.PI*2-Math.PI/2;
+    const sa=(s/60)*Math.PI*2-Math.PI/2;
+    ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+(r-38)*Math.cos(ha),cy+(r-38)*Math.sin(ha));
+    ctx.strokeStyle=hand; ctx.lineWidth=3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+(r-22)*Math.cos(ma),cy+(r-22)*Math.sin(ma));
+    ctx.strokeStyle=hand; ctx.lineWidth=2; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-10*Math.cos(sa),cy-10*Math.sin(sa));
+    ctx.lineTo(cx+(r-18)*Math.cos(sa),cy+(r-18)*Math.sin(sa));
+    ctx.strokeStyle='#C4703A'; ctx.lineWidth=1; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.fillStyle=acc; ctx.fill();
+  }
+
+  function drawGump(canvas, progress, isJenny) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, cx = W/2, cy = W/2, r = W/2 - 10;
+    const dark = isDark();
+    const bg = dark?'#2a2a27':'#F5EFE0', fg = dark?'#E8E0D0':'#3A2E1C';
+    const acc = '#7A6040';
+    ctx.clearRect(0,0,W,W);
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle=bg; ctx.fill();
+    ctx.strokeStyle=isJenny?'#EF9F27':acc; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx,cy,r-4,-Math.PI/2,-Math.PI/2+progress*Math.PI*2);
+    ctx.strokeStyle=(isJenny?'#EF9F27':acc)+'66'; ctx.lineWidth=5; ctx.stroke();
+    for (let i=0;i<4;i++) {
+      const a=-Math.PI/2+(i/4)*Math.PI*2;
+      ctx.beginPath();
+      ctx.moveTo(cx+(r-10)*Math.cos(a),cy+(r-10)*Math.sin(a));
+      ctx.lineTo(cx+(r-18)*Math.cos(a),cy+(r-18)*Math.sin(a));
+      ctx.strokeStyle=fg; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    for (let i=0;i<12;i++) {
+      if (i%3===0) continue;
+      const a=-Math.PI/2+(i/12)*Math.PI*2;
+      ctx.beginPath();
+      ctx.moveTo(cx+(r-10)*Math.cos(a),cy+(r-10)*Math.sin(a));
+      ctx.lineTo(cx+(r-14)*Math.cos(a),cy+(r-14)*Math.sin(a));
+      ctx.strokeStyle=fg+'88'; ctx.lineWidth=0.8; ctx.stroke();
+    }
+    const ga=-Math.PI/2+progress*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+(r-20)*Math.cos(ga),cy+(r-20)*Math.sin(ga));
+    ctx.strokeStyle=isJenny?'#EF9F27':acc; ctx.lineWidth=3; ctx.lineCap='round'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.fillStyle=isJenny?'#EF9F27':acc; ctx.fill();
+  }
+
+  function renderWeekBars(g) {
+    const container = document.getElementById('week-days');
+    container.innerHTML = '';
+    for (let d = 0; d < 7; d++) {
+      const dayGumps = GUMPS_PER_DAY_ARR[d];
+      const isToday = d === g.dayIdx, isPast = d < g.dayIdx, isSun = d === 6;
+      const col = document.createElement('div'); col.className='day-col';
+      const lbl = document.createElement('div');
+      lbl.className='day-label'+(isToday?' active-day':'');
+      lbl.textContent=DAY_NAMES[d]; col.appendChild(lbl);
+      const barWrap = document.createElement('div');
+      barWrap.className='day-bar-wrap'+(isToday?(isSun?' active-bar jenny-bar':' active-bar'):'');
+      const fill = document.createElement('div');
+      fill.className='day-bar-fill'+(isSun?' jenny-fill':'');
+      let fillPct = isPast ? 100 : isToday ? Math.min(100,((g.gumpIdxToday+g.progress)/dayGumps)*100) : 0;
+      fill.style.height=fillPct.toFixed(1)+'%';
+      barWrap.appendChild(fill); col.appendChild(barWrap);
+      const numLbl=document.createElement('div'); numLbl.className='day-gump-num';
+      if (isPast) numLbl.textContent=isSun?'11':'10';
+      else if (isToday) numLbl.textContent=g.isJenny?'J':(g.gumpIdxToday+1);
+      else { numLbl.textContent=isSun?'11':'10'; numLbl.style.opacity='0.35'; }
+      col.appendChild(numLbl);
+      container.appendChild(col);
+    }
+  }
+
+  function tick() {
+    const now=new Date(), gmt0=getGMT0Now(), g=computeGump(gmt0), zone=getLocalZone();
+    const jsDays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    document.getElementById('local-digital').textContent=`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    document.getElementById('local-day').textContent=jsDays[now.getDay()];
+    document.getElementById('local-zone-name').textContent=zone.tz.replace(/_/g,' ').split('/').pop();
+    document.getElementById('local-offset').textContent=zone.offsetStr;
+    document.getElementById('gump-digital').textContent=g.dailyDecimal;
+    document.getElementById('gump-day').textContent=`Dan ${gmt0.getDate()} · ${DAY_NAMES[g.dayIdx]}`;
+    document.getElementById('gump-name').textContent=g.isJenny?'Jenny (Bonus Gump)':`Gump ${g.weekDisplayGump} of week`;
+    document.getElementById('gump-sub').textContent=g.scene;
+    document.getElementById('stat-gump').textContent=g.isJenny?'Jenny':g.weekDisplayGump;
+    document.getElementById('stat-mins-left').textContent=g.minsLeft+'m';
+    document.getElementById('stat-dan').textContent=gmt0.getDate()+' / 28';
+    document.getElementById('jenny-banner').className='jenny-banner'+(g.isJenny?' active':'');
+    const zl=getGumpZoneLabel(zone.offsetMins);
+    document.getElementById('zone-pill').textContent=`GMT${zl.offset>=0?'+':''}${zl.offset} — ${zl.region}`;
+    drawLocal(document.getElementById('local-canvas'),now.getHours(),now.getMinutes(),now.getSeconds());
+    drawGump(document.getElementById('gump-canvas'),g.progress,g.isJenny);
+    renderWeekBars(g);
+  }
+
+
+  function drawRunner() {
+    const canvas = document.getElementById('runner-canvas');
+    const W = canvas.offsetWidth || 640;
+    const H = 120;
+    if (canvas.width !== W) canvas.width = W;
+    if (canvas.height !== H) canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const dark = isDark();
+
+    const gmt0 = getGMT0Now();
+    const g = computeGump(gmt0);
+    const totalGumps = g.isSunday ? 11 : 10;
+
+    const bgCol     = dark ? '#2a2a27' : '#F5EFE0';
+    const groundCol = dark ? '#3A3020' : '#C8A96E';
+    const lineCol   = dark ? '#4A3C28' : '#B8956A';
+    const fillCol   = dark ? 'rgba(90,72,40,0.4)' : 'rgba(122,96,64,0.15)';
+    const runnerCol = dark ? '#D4B896' : '#5A3A1A';
+    const sunCol    = dark ? '#7A6040' : '#E8B84B';
+    const tickCol   = dark ? '#5A4A30' : '#9A7A50';
+
+    ctx.fillStyle = bgCol;
+    ctx.fillRect(0, 0, W, H);
+
+    const groundY = H * 0.68;
+
+    ctx.fillStyle = groundCol;
+    ctx.fillRect(0, groundY, W, 3);
+
+    ctx.strokeStyle = lineCol;
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 5]);
+    for (let i = 0; i <= totalGumps; i++) {
+      const x = (i / totalGumps) * W;
+      ctx.beginPath(); ctx.moveTo(x, groundY + 3); ctx.lineTo(x, H); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    const totalProgress = (g.gumpIdxToday + g.progress) / totalGumps;
+    ctx.fillStyle = fillCol;
+    ctx.fillRect(0, groundY + 3, Math.min(totalProgress, 1) * W, H - groundY - 3);
+
+    for (let i = 0; i < totalGumps; i++) {
+      const x = ((i + 0.5) / totalGumps) * W;
+      const y = groundY - 10;
+      ctx.fillStyle = i < g.gumpIdxToday ? '#7A6040' : (i === g.gumpIdxToday ? tickCol : lineCol);
+      ctx.font = `${i < g.gumpIdxToday ? 'bold ' : ''}10px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(i < g.gumpIdxToday ? String(i+1) : (i === g.gumpIdxToday ? String(i+1) : '·'), x, y);
+    }
+
+    const now = Date.now();
+    const runnerX = Math.min(((g.gumpIdxToday + g.progress) / totalGumps) * W, W - 8);
+    const bobY = Math.sin(now / 120) * 2.5;
+    const legSwing = Math.sin(now / 110);
+    const s = H * 0.042;
+
+    ctx.fillStyle = runnerCol;
+    ctx.strokeStyle = runnerCol;
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    ctx.arc(runnerX, groundY - s * 5.5 + bobY, s * 1.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillRect(runnerX - s * 0.55, groundY - s * 4.2 + bobY, s * 1.1, s * 2.4);
+
+    ctx.lineWidth = s * 0.75;
+    ctx.beginPath(); ctx.moveTo(runnerX, groundY - s*3.5+bobY); ctx.lineTo(runnerX - s*1.1, groundY - s*2+bobY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(runnerX, groundY - s*3.5+bobY); ctx.lineTo(runnerX + s*1.1, groundY - s*2.4+bobY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(runnerX, groundY - s*1.8+bobY); ctx.lineTo(runnerX - s*legSwing*1.1, groundY+bobY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(runnerX, groundY - s*1.8+bobY); ctx.lineTo(runnerX + s*legSwing*1.1, groundY+bobY); ctx.stroke();
+
+    const sunProgress = (g.gumpIdxToday + g.progress) / totalGumps;
+    const sunX = sunProgress * W;
+    const sunY = groundY * 0.3 - Math.sin(sunProgress * Math.PI) * (groundY * 0.2);
+    ctx.fillStyle = sunCol;
+    ctx.beginPath(); ctx.arc(sunX, sunY, H * 0.065, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = dark ? 'rgba(212,184,150,0.5)' : 'rgba(90,58,26,0.4)';
+    ctx.font = `500 11px monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(g.dailyDecimal, W - 10, groundY - 12);
+
+    requestAnimationFrame(drawRunner);
+  }
+
+  drawRunner();
+  tick();
+  setInterval(tick,1000);
+</script>
+</body>
+</html>
